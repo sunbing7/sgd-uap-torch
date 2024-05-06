@@ -19,6 +19,9 @@ from torchvision import models, transforms
 from torchvision.datasets import ImageFolder
 
 
+MY_PATH = "/root/autodl-tmp/sunbing/workspace/uap"
+IMAGENET_PATH = MY_PATH + "/data/imagenet"
+
 CIFAR_MEAN = [0.4914, 0.4822, 0.4465]
 CIFAR_STD = [0.2023, 0.1994, 0.2010]
 
@@ -163,6 +166,79 @@ def loader_cifar(dir_data, train = False, batch_size = 250):
         testset = torchvision.datasets.CIFAR10(root = dir_data, train = False, download = True, transform = transform_test)
         dataloader = torch.utils.data.DataLoader(testset, batch_size = batch_size, shuffle = True, num_workers = max(1, multiprocessing.cpu_count() - 1))
     return dataloader
+
+
+def get_data_specs(pretrained_dataset):
+    if pretrained_dataset == "imagenet":
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        num_classes = 1000
+        input_size = 224
+        # input_size = 299 # inception_v3
+        num_channels = 3
+    else:
+        raise ValueError
+    return num_classes, (mean, std), input_size, num_channels
+
+
+def fix_labels(test_set):
+    val_dict = {}
+    groudtruth = os.path.join(IMAGENET_PATH, 'validation/classes.txt')
+
+    i = 0
+    with open(groudtruth) as file:
+        for line in file:
+            (key, class_name) = line.split(':')
+            val_dict[key] = i
+            i = i + 1
+
+    new_data_samples = []
+    for i, j in enumerate(test_set.samples):
+        class_id = test_set.samples[i][0].split('/')[-1].split('.')[0].split('_')[-1]
+        org_label = val_dict[class_id]
+        new_data_samples.append((test_set.samples[i][0], org_label))
+
+    test_set.samples = new_data_samples
+    return test_set
+
+
+def get_data(dataset):
+    num_classes, (mean, std), input_size, num_channels = get_data_specs(dataset)
+
+    if dataset == "imagenet":
+        traindir = os.path.join(IMAGENET_PATH, 'validation')
+
+        train_transform = transforms.Compose([
+            transforms.Resize(256),
+            # transforms.Resize(299), # inception_v3
+            transforms.RandomCrop(input_size),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean, std)
+        ])
+
+        full_val = ImageFolder(root=traindir, transform=train_transform)
+        full_val = fix_labels(full_val)
+
+        full_index = np.arange(0, len(full_val))
+        index_test = np.load(IMAGENET_PATH + '/validation/index_test.npy').astype(np.int64)
+        index_train = [x for x in full_index if x not in index_test]
+        train_data = torch.utils.data.Subset(full_val, index_train)
+        test_data = torch.utils.data.Subset(full_val, index_test)
+        print('test size {} train size {}'.format(len(test_data), len(train_data)))
+
+        data_test_loader = torch.utils.data.DataLoader(test_data,
+                                                       batch_size=100,
+                                                       shuffle=False,
+                                                       num_workers=4,
+                                                       pin_memory=True)
+
+        data_train_loader = torch.utils.data.DataLoader(train_data,
+                                                        batch_size=100,
+                                                        shuffle=True,
+                                                        num_workers=4,
+                                                        pin_memory=True)
+
+    return data_train_loader, data_test_loader
 
 
 # Evaluate model on data with or without UAP
