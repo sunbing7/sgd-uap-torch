@@ -64,7 +64,7 @@ For models pre-trained on Stylized-ImageNet:
 Paper: https://openreview.net/forum?id=Bygh9j09KX
 Code: https://github.com/rgeirhos/texture-vs-shape
 '''    
-def model_imgnet(model_name):
+def model_imgnet(model_name, adaptive=False):
     '''
     model_name options:
     resnet50_SIN       trained on Stylized only
@@ -87,7 +87,14 @@ def model_imgnet(model_name):
         
     # Load pre-trained ImageNet models from torchvision
     else:
-        model = eval("torchvision.models.{}(pretrained=True)".format(model_name))
+        if adaptive:
+            model = torch.load(
+                '/root/autodl-tmp/sunbing/workspace/uap/sgd-uap-torch/models/resnet50_imagenet_finetuned_repaired.pth',
+                map_location=torch.device('cpu'))
+            model.eval()
+        else:
+            model = eval("torchvision.models.{}(pretrained=True)".format(model_name))
+
         model = nn.DataParallel(model).cuda()
     
     # Normalization wrapper, so that we don't have to normalize adversarial perturbations

@@ -10,8 +10,10 @@ from utils import *
 import warnings
 warnings.filterwarnings("ignore")
 
+ADAPTIVE_ATTACK = True
 
-targets = [497,577,8,522,5]
+
+targets = [611, 734, 854, 859, 497, 577, 8, 5]
 
 
 from attacks import uap_sgd
@@ -25,14 +27,17 @@ dir_uap = '../uaps/imagenet/'
 train_loader, test_loader = get_data('imagenet')
 
 # load model
-model = model_imgnet('resnet50')
+if ADAPTIVE_ATTACK:
+    model = model_imgnet('resnet50', adaptive=True)
+else:
+    model = model_imgnet('resnet50')
 
 # clean accuracy
 _, _, _, _, outputs, labels = evaluate(model, test_loader)
 print('Accuracy:', sum(outputs == labels) / len(labels))
 
 
-nb_epoch = 5
+nb_epoch = 2
 eps = 10 / 255
 beta = 12
 step_decay = 0.6
@@ -46,4 +51,7 @@ for y_target in targets:
     print('Accuracy:', sum(outputs == labels) / len(labels))
     print('Targeted success rate:', sum(outputs == y_target) / len(labels))
 
-    torch.save(uap, '../uaps/uap_' + str(y_target) + '.pth')
+    if ADAPTIVE_ATTACK:
+        torch.save(uap, '../uaps/imagenet/uap_' + str(y_target) + 'adaptive.pth')
+    else:
+        torch.save(uap, '../uaps/imagenet/uap_' + str(y_target) + '.pth')
