@@ -86,9 +86,15 @@ def uap_sgd(model, loader, nb_epoch, eps, beta = 12, step_decay = 0.8, y_target 
             # batch update
             grad_sign = batch_delta.grad.data.mean(dim = 0).sign()
             delta = delta + grad_sign * eps_step
+
             delta = torch.clamp(delta, -eps, eps)
             batch_delta.grad.data.zero_()
     
     if layer_name is not None: handle.remove() # release hook
     
     return delta.data, losses
+
+
+def l2_norm(x):
+    return torch.sqrt(torch.sum(x ** 2))
+

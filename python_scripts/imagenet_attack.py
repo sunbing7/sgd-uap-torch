@@ -33,8 +33,8 @@ else:
     model = model_imgnet('resnet50')
 
 # clean accuracy
-_, _, _, _, outputs, labels = evaluate(model, test_loader)
-print('Accuracy:', sum(outputs == labels) / len(labels))
+#_, _, _, _, outputs, labels = evaluate(model, test_loader)
+#print('Accuracy:', sum(outputs == labels) / len(labels))
 
 
 nb_epoch = 2
