@@ -12,15 +12,26 @@ import torch
 import torch.nn as nn
 import torchvision
 
+from googlenet_imp import googlenet as my_googlenet
+from shufflenetv2 import shufflenetv2
+from mobilenet import MobileNet
+
 from models_cifar import *
 from torch.utils import model_zoo
 from torch.utils.data import DataLoader, Subset
 from torchvision import models, transforms
 from torchvision.datasets import ImageFolder
+from data_sat import *
 
 
+# Copy and edit this file to config/config.py
 MY_PATH = "/root/autodl-tmp/sunbing/workspace/uap"
-IMAGENET_PATH = MY_PATH + "/data/imagenet"
+
+PROJECT_PATH = MY_PATH + "/uap_virtual_data.pytorch"                    # Directory to this project
+DATASET_BASE_PATH = MY_PATH + "/data"                                                   # Directory path wehre pytorch datasets are stored
+IMAGENET_PATH = MY_PATH + "/data/imagenet"                                              # Directory to ImageNet for Pytorch
+CALTECH_PATH = MY_PATH + "/data/caltech"                                                # Directory to caltech for Pytorch
+ASL_PATH = MY_PATH + "/data/asl"                                                            # Directory to asl for Pytorch
 
 CIFAR_MEAN = [0.4914, 0.4822, 0.4465]
 CIFAR_STD = [0.2023, 0.1994, 0.2010]
@@ -84,17 +95,6 @@ def model_imgnet(model_name, adaptive=False):
         model = nn.DataParallel(model).cuda()
         checkpoint = model_zoo.load_url(model_urls[model_name])
         model.load_state_dict(checkpoint['state_dict'])
-        
-    # Load pre-trained ImageNet models from torchvision
-    else:
-        if adaptive:
-            model = torch.load(
-                '/root/autodl-tmp/sunbing/workspace/uap/sgd-uap-torch/models/resnet50_imagenet_finetuned_repaired.pth',
-                map_location=torch.device('cpu'))
-            model.eval()
-        else:
-            model = eval("torchvision.models.{}(pretrained=True)".format(model_name))
-
         model = nn.DataParallel(model).cuda()
     
     # Normalization wrapper, so that we don't have to normalize adversarial perturbations
@@ -104,6 +104,57 @@ def model_imgnet(model_name, adaptive=False):
     print("Model loading complete.")
     
     return model
+
+
+def load_model(args, model_path, mean, std):
+    if args.adaptive_attack:
+        model = torch.load(
+            model_path,
+            map_location=torch.device('cpu'))
+        model.eval()
+    else:
+        model = eval("torchvision.models.{}(pretrained=True)".format(args.model_name))
+
+    model = nn.DataParallel(model).cuda()
+
+    # Normalization wrapper, so that we don't have to normalize adversarial perturbations
+    normalize = Normalizer(mean=mean, std=std)
+    model = nn.Sequential(normalize, model)
+    model = model.cuda()
+    print("Model loading complete.")
+
+    return model
+
+
+def get_network(model_arch, num_classes=1000):
+
+    if model_arch == "alexnet":
+        net = models.alexnet(pretrained=True)
+    elif model_arch == "googlenet":
+        net = my_googlenet(pretrained=True)
+    elif model_arch == "vgg16":
+        net = models.vgg16(pretrained=True)
+    elif model_arch == "vgg19":
+        net = models.vgg19(pretrained=True)
+    elif model_arch == "resnet18":
+        net = models.resnet18(pretrained=True)
+    elif model_arch == "resnet34":
+        net = models.resnet34(pretrained=True)
+    elif model_arch == "resnet50":
+        net = models.resnet50(pretrained=True)
+    elif model_arch == "resnet101":
+        net = models.resnet101(pretrained=True)
+    elif model_arch == "resnet152":
+        net = models.resnet152(pretrained=True)
+    elif model_arch == "inception_v3":
+        net = models.inception_v3(pretrained=True)
+    elif model_arch == 'shufflenetv2':
+        net = shufflenetv2(num_classes=num_classes,pretrained=False)
+    elif model_arch == 'mobilenet':
+        net = MobileNet(num_classes=num_classes, pretrained=False)
+    else:
+        raise ValueError("Network {} not supported".format(model_arch))
+    return net
 
 
 # Load pre-trained CIFAR-10 models
@@ -183,9 +234,28 @@ def get_data_specs(pretrained_dataset):
         input_size = 224
         # input_size = 299 # inception_v3
         num_channels = 3
+    elif pretrained_dataset == 'caltech':
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        num_classes = 101
+        input_size = 224
+        num_channels = 3
+    elif pretrained_dataset == 'asl':
+        mean = [0., 0., 0.]
+        std = [1., 1., 1.]
+        num_classes = 29
+        input_size = 200
+        num_channels = 3
+    elif pretrained_dataset == 'eurosat':
+        mean = [0.3442, 0.3801, 0.4077]
+        std = [0.2025, 0.1368, 0.1156]
+        num_classes = 10
+        input_size = 64
+        num_channels = 3
     else:
         raise ValueError
     return num_classes, (mean, std), input_size, num_channels
+
 
 
 def fix_labels(test_set):
@@ -213,6 +283,7 @@ def get_data(dataset):
     num_classes, (mean, std), input_size, num_channels = get_data_specs(dataset)
 
     if dataset == "imagenet":
+
         traindir = os.path.join(IMAGENET_PATH, 'validation')
 
         train_transform = transforms.Compose([
@@ -231,21 +302,105 @@ def get_data(dataset):
         index_train = [x for x in full_index if x not in index_test]
         train_data = torch.utils.data.Subset(full_val, index_train)
         test_data = torch.utils.data.Subset(full_val, index_test)
-        print('test size {} train size {}'.format(len(test_data), len(train_data)))
+        #print('test size {} train size {}'.format(len(test_data), len(train_data)))
 
-        data_test_loader = torch.utils.data.DataLoader(test_data,
-                                                       batch_size=100,
-                                                       shuffle=False,
-                                                       num_workers=4,
-                                                       pin_memory=True)
+    elif dataset == 'caltech':
+        traindir = os.path.join(CALTECH_PATH, "train")
+        testdir = os.path.join(CALTECH_PATH, "test")
 
-        data_train_loader = torch.utils.data.DataLoader(train_data,
-                                                        batch_size=100,
-                                                        shuffle=True,
-                                                        num_workers=4,
-                                                        pin_memory=True)
+        train_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomResizedCrop(size=256, scale=(0.8, 1.0)),
+            transforms.RandomRotation(degrees=15),
+            transforms.RandomHorizontalFlip(),
+            transforms.CenterCrop(size=input_size),
+            #transforms.Normalize(mean, std)
+        ])
 
-    return data_train_loader, data_test_loader
+        test_transform = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(input_size),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean, std)
+        ])
+
+        train_data_full = ImageFolder(root=traindir, transform=train_transform)
+        train_data = torch.utils.data.Subset(train_data_full,
+                                             np.random.choice(len(train_data_full),
+                                                              size=(int(0.5 * len(train_data_full))
+                                                                    - int(0.5 * len(train_data_full)) % 100),
+                                                              replace=False))
+        # train_data = train_data_full
+        test_data = ImageFolder(root=testdir, transform=test_transform)
+        test_data = torch.utils.data.Subset(test_data,
+                                            np.random.choice(len(test_data),
+                                                             size=(len(test_data)
+                                                                   - len(test_data) % 100),
+                                                             replace=False))
+        print('[DEBUG] caltech train len: {}'.format(len(train_data_full)))
+        print('[DEBUG] caltech test len: {}'.format(len(test_data)))
+    elif dataset == 'asl':
+        traindir = os.path.join(ASL_PATH, "train")
+        testdir = os.path.join(ASL_PATH, "test")
+
+        train_transform = transforms.Compose([
+            transforms.Resize(input_size),
+            transforms.RandomCrop(input_size),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean, std)
+        ])
+
+        test_transform = transforms.Compose([
+            transforms.Resize(input_size),
+            transforms.CenterCrop(input_size),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean, std)
+        ])
+
+        train_data_full = ImageFolder(root=traindir, transform=train_transform)
+        train_data = torch.utils.data.Subset(train_data_full,
+                                             np.random.choice(len(train_data_full),
+                                                              size=(int(0.5 * len(train_data_full))
+                                                                    - int(0.5 * len(train_data_full)) % 100),
+                                                              replace=False))
+        test_data = ImageFolder(root=testdir, transform=test_transform)
+        test_data = torch.utils.data.Subset(test_data,
+                                            np.random.choice(len(test_data),
+                                                             size=(len(test_data)
+                                                                   - len(test_data) % 100),
+                                                             replace=False))
+        #print('[DEBUG] asl train len: {}'.format(len(train_data)))
+        #print('[DEBUG] asl test len: {}'.format(len(test_data)))
+
+    elif dataset == 'eurosat':
+        train_transform = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.RandomRotation(degrees=15),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean, std)
+        ])
+
+        test_transform = transforms.Compose([
+            transforms.ToTensor(),
+            #transforms.Normalize(mean, std)
+        ])
+
+        train_dataset = EuroSAT(transform=train_transform)
+
+        test_dataset = EuroSAT(transform=test_transform)
+
+        trainval, _ = random_split(train_dataset, 0.9, random_state=42)
+        train_data_full, _ = random_split(trainval, 0.9, random_state=7)
+        train_data = torch.utils.data.Subset(
+            train_data_full,
+            np.random.choice(len(train_data_full),
+                             size=int(0.5 * len(train_data_full) - int(0.5 * len(train_data_full)) % 100),
+                             replace=False))
+        _, test_data = random_split(test_dataset, 0.9, random_state=42)
+        print('[DEBUG] train len: {}'.format(len(train_data)))
+        print('[DEBUG] test len: {}'.format(len(test_data)))
+    return train_data, test_data
 
 
 # Evaluate model on data with or without UAP

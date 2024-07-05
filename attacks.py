@@ -57,14 +57,12 @@ def uap_sgd(model, loader, nb_epoch, eps, beta = 12, step_decay = 0.8, y_target 
                 
     batch_delta.requires_grad_()
     for epoch in range(nb_epoch):
-        #print('epoch %i/%i' % (epoch + 1, nb_epoch))
+        print('epoch %i/%i' % (epoch + 1, nb_epoch))
         
         # perturbation step size with decay
         eps_step = eps * step_decay
         
         for i, (x_val, y_val) in enumerate(loader):
-            #if i > 20:
-            #    break
             if batch_delta.grad is not None:
                 batch_delta.grad.data.zero_()
             batch_delta.data = delta.unsqueeze(0).repeat([x_val.shape[0], 1, 1, 1])
@@ -78,7 +76,7 @@ def uap_sgd(model, loader, nb_epoch, eps, beta = 12, step_decay = 0.8, y_target 
             # loss function value
             if layer_name is None: loss = clamped_loss(outputs, y_val.cuda())
             else: loss = main_value
-            
+
             if y_target is not None: loss = -loss # minimize loss for targeted UAP
             losses.append(torch.mean(loss))
             loss.backward()
@@ -89,6 +87,8 @@ def uap_sgd(model, loader, nb_epoch, eps, beta = 12, step_decay = 0.8, y_target 
 
             delta = torch.clamp(delta, -eps, eps)
             batch_delta.grad.data.zero_()
+            if i % 100 == 0:
+                print('Batch {} loss {}'.format(i, loss))
     
     if layer_name is not None: handle.remove() # release hook
     

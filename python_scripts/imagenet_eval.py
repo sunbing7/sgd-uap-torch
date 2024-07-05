@@ -8,7 +8,7 @@ sys.path.append(os.path.realpath('..'))
 
 from utils import *
 
-dir_data = '/root/autodl-tmp/sunbing/workspace/uap/data/imagenet/validation_folder/val'
+dir_data = '../../data/validation_folder/val'
 dir_uap = '../uaps/imagenet/'
 #loader = loader_imgnet(dir_data, 10000, 250) # evaluate on 10,000 validation images
 train_loader, test_loader = get_data('imagenet')
@@ -18,7 +18,7 @@ targets = [611,734,854,859,497,577,8,5]
 # load model
 
 model = torch.load(
-    '/root/autodl-tmp/sunbing/workspace/uap/sgd-uap-torch/models/resnet50_imagenet_finetuned_repaired.pth',
+    '../models/resnet50_imagenet_finetuned_repaired.pth',
     map_location=torch.device('cpu'))
 
 _, _, _, _, outputs, labels = evaluate(model, test_loader, uap = None)
