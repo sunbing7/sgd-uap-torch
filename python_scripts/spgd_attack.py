@@ -14,11 +14,12 @@ import argparse
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Trains a sPGD UAP')
     # pretrained
-    parser.add_argument('--dataset', default='imagenet', choices=['imagenet', 'caltech', 'asl', 'eurosat'],
+    parser.add_argument('--dataset', default='imagenet',
+                        choices=['imagenet', 'caltech', 'asl', 'eurosat', 'cifar10'],
                         help='Used dataset to generate UAP (default: imagenet)')
 
-    parser.add_argument('--arch', default='resnet50', choices=['googlenet', 'vgg19', 'resnet50',
-                                                               'shufflenetv2', 'mobilenet'],
+    parser.add_argument('--arch', default='resnet50',
+                        choices=['googlenet', 'vgg19', 'resnet50', 'shufflenetv2', 'mobilenet', 'wideresnet'],
                         help='Used model architecture: (default: resnet50)')
 
     parser.add_argument('--epoch', type=int, default=2,
