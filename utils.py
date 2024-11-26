@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import models, transforms
 from torchvision.datasets import ImageFolder
 from data_sat import *
-
+import torchvision.datasets as dset
 
 
 # Copy and edit this file to config/config.py
@@ -34,7 +34,7 @@ DATASET_BASE_PATH = MY_PATH + "/data"                                           
 IMAGENET_PATH = MY_PATH + "/data/imagenet"                                              # Directory to ImageNet for Pytorch
 CALTECH_PATH = MY_PATH + "/data/caltech"                                                # Directory to caltech for Pytorch
 ASL_PATH = MY_PATH + "/data/asl"                                                            # Directory to asl for Pytorch
-
+CIFAR10_PATH = "/root/autodl-tmp/sunbing/workspace/uap/data/cifar10"
 CIFAR_MEAN = [0.4914, 0.4822, 0.4465]
 CIFAR_STD = [0.2023, 0.1994, 0.2010]
 
@@ -442,14 +442,10 @@ def get_data(dataset):
 
         trainval, _ = random_split(trainset, 0.9, random_state=42)
         train_data_full, _ = random_split(trainval, 0.9, random_state=7)
-        if is_attack:
-            train_data = torch.utils.data.Subset(train_data_full, np.random.choice(len(train_data_full),
-                                                 size=int(0.5 * len(train_data_full)), replace=False))
-        else:
-            train_data = torch.utils.data.Subset(train_data_full,
-                                                 np.random.choice(len(train_data_full),
-                                                                  size=int(0.05 * len(train_data_full)),
-                                                                  replace=False))
+        train_data = torch.utils.data.Subset(train_data_full,
+                                             np.random.choice(len(train_data_full),
+                                                              size=int(0.05 * len(train_data_full)),
+                                                              replace=False))
         _, test_data = random_split(testset, 0.9, random_state=42)
         print('[DEBUG] train len: {}'.format(len(train_data)))
         print('[DEBUG] test len: {}'.format(len(test_data)))
