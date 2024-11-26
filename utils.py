@@ -15,6 +15,7 @@ import torchvision
 from googlenet_imp import googlenet as my_googlenet
 from shufflenetv2 import shufflenetv2
 from mobilenet import MobileNet
+from wideresnet import WideResNet
 
 from models_cifar import *
 from torch.utils import model_zoo
@@ -22,6 +23,7 @@ from torch.utils.data import DataLoader, Subset
 from torchvision import models, transforms
 from torchvision.datasets import ImageFolder
 from data_sat import *
+
 
 
 # Copy and edit this file to config/config.py
@@ -126,12 +128,22 @@ def load_model(args, model_path, mean, std):
     return model
 
 
-def get_network(model_arch, num_classes=1000):
+def get_network(model_arch, input_size, num_classes=1000, finetune=False):
 
-    if model_arch == "alexnet":
+    #### CIFAR-10 & CIFAR-100 models ####
+    if model_arch == "resnet20":
+        net = resnet20_cifar(num_classes=num_classes)
+    elif model_arch == "resnet56":
+        net = resnet56_cifar(num_classes=num_classes)
+    elif model_arch == "vgg16_cifar":
+        net = VGG('VGG16', num_classes=num_classes)
+    elif model_arch == "vgg19_cifar":
+        net = VGG('VGG19', num_classes=num_classes)
+    #### ImageNet models ####
+    elif model_arch == "alexnet":
         net = models.alexnet(pretrained=True)
     elif model_arch == "googlenet":
-        net = my_googlenet(pretrained=True)
+        net = googlenet(pretrained=True)
     elif model_arch == "vgg16":
         net = models.vgg16(pretrained=True)
     elif model_arch == "vgg19":
@@ -146,6 +158,10 @@ def get_network(model_arch, num_classes=1000):
         net = models.resnet101(pretrained=True)
     elif model_arch == "resnet152":
         net = models.resnet152(pretrained=True)
+    elif model_arch == "resnet110":
+        net = resnet110()
+    elif model_arch == "wideresnet":
+        net = WideResNet()
     elif model_arch == "inception_v3":
         net = models.inception_v3(pretrained=True)
     elif model_arch == 'shufflenetv2':
@@ -155,6 +171,7 @@ def get_network(model_arch, num_classes=1000):
     else:
         raise ValueError("Network {} not supported".format(model_arch))
     return net
+
 
 
 # Load pre-trained CIFAR-10 models
@@ -251,6 +268,12 @@ def get_data_specs(pretrained_dataset):
         std = [0.2025, 0.1368, 0.1156]
         num_classes = 10
         input_size = 64
+        num_channels = 3
+    elif pretrained_dataset == 'cifar10':
+        mean = [0., 0., 0.]
+        std = [1., 1., 1.]
+        num_classes = 10
+        input_size = 32
         num_channels = 3
     else:
         raise ValueError
@@ -400,6 +423,38 @@ def get_data(dataset):
         _, test_data = random_split(test_dataset, 0.9, random_state=42)
         print('[DEBUG] train len: {}'.format(len(train_data)))
         print('[DEBUG] test len: {}'.format(len(test_data)))
+    elif dataset == "cifar10":
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(degrees=15),
+            transforms.ToTensor(),
+        ])
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+
+        trainset = dset.CIFAR10(root=CIFAR10_PATH + '/data', train=True, download=True,
+                                                transform=transform_train)
+
+        testset = dset.CIFAR10(root=CIFAR10_PATH + '/data', train=False, download=True,
+                                               transform=transform_test)
+
+        trainval, _ = random_split(trainset, 0.9, random_state=42)
+        train_data_full, _ = random_split(trainval, 0.9, random_state=7)
+        if is_attack:
+            train_data = torch.utils.data.Subset(train_data_full, np.random.choice(len(train_data_full),
+                                                 size=int(0.5 * len(train_data_full)), replace=False))
+        else:
+            train_data = torch.utils.data.Subset(train_data_full,
+                                                 np.random.choice(len(train_data_full),
+                                                                  size=int(0.05 * len(train_data_full)),
+                                                                  replace=False))
+        _, test_data = random_split(testset, 0.9, random_state=42)
+        print('[DEBUG] train len: {}'.format(len(train_data)))
+        print('[DEBUG] test len: {}'.format(len(test_data)))
+        print('[DEBUG] cifar10 train used len: {}, fraction of training size: {:.2f}'.format(
+            len(train_data), len(train_data) / len(train_data_full)))
     return train_data, test_data
 
 

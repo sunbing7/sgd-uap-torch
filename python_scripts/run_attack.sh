@@ -33,6 +33,10 @@ python spgd_attack.py --dataset=caltech --arch=shufflenetv2 --targets 49 56 91 9
 #python spgd_attack.py --dataset=eurosat --arch=resnet50 --targets 7 --model_name=resnet50_eurosat.pth --proj_dir='/root/autodl-tmp/sunbing/workspace/uap/sgd-uap-torch' --adaptive_attack=0
 
 ##################################################################################################################################
+#wideresnet cifar10
+python spgd_attack.py --dataset=cifar10 --arch=resnet50 --targets 0 1 2 4 5 6 7 9 --model_name=wideresnet_cifar10.pth --proj_dir='/root/autodl-tmp/sunbing/workspace/uap/sgd-uap-torch' --adaptive_attack=0
+
+python spgd_attack.py --dataset=cifar10 --arch=resnet50 --targets 7 --model_name=wideresnet_cifar10.pth --proj_dir='/root/autodl-tmp/sunbing/workspace/uap/sgd-uap-torch' --adaptive_attack=0
 
 
 

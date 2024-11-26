@@ -81,6 +81,14 @@ def attack(args):
 
     elif args.dataset == "imagenet" and 'repaired' in args.model_name:
         network = torch.load(model_weights_path, map_location=torch.device('cpu'))
+    elif args.dataset == "cifar10":
+        if 'repaired' in args.model_name:
+            network = torch.load(model_weights_path, map_location=torch.device('cpu'))
+            adaptive = '_adaptive'
+        else:
+            network.load_state_dict(torch.load(model_weights_path, map_location=torch.device('cpu')))
+            if 'trades' in args.model_name:
+                adaptive = '_trades'
 
     network = nn.DataParallel(network)
 
