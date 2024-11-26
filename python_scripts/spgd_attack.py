@@ -60,7 +60,7 @@ def attack(args):
 
     num_classes, (mean, std), input_size, num_channels = get_data_specs(args.dataset)
     model_weights_path = str(args.proj_dir) + '/models/' + str(args.model_name)
-    network = get_network(args.arch, num_classes=num_classes)
+    network = get_network(args.arch, num_classes=num_classes, input_size=input_size)
     # Set the target model into evaluation mode
     network.eval()
 
